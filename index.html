@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NABH Quality & Policy Management Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    /* Anti-Copy & Anti-Selection Protection on Policy Content */
+    .protected-content {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
+    /* Transparent Seal & Signature Blending */
+    .transparent-stamp {
+      mix-blend-mode: multiply;
+      object-fit: contain;
+    }
+
+    /* Print Engine: Dynamic Letterhead Header, Cover Page & Footer with Seal/Signatures */
+    @media print {
+      @page {
+        size: A4;
+        margin: 10mm 12mm 14mm 12mm;
+        @bottom-right {
+          content: "Page " counter(page) " of " counter(pages);
+          font-size: 8.5pt;
+          font-weight: bold;
+          color: #1e293b;
+        }
+      }
+      body { background: #ffffff !important; color: #000000 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      body * { visibility: hidden; }
+      #printContainer, #printContainer * { visibility: visible; }
+      #printContainer { position: absolute; left: 0; top: 0; width: 100%; }
+      .no-print { display: none !important; }
+      table.print-layout { width: 100%; border-collapse: collapse; }
+      table.print-layout > thead { display: table-header-group; }
+      table.print-layout > tfoot { display: table-footer-group; }
+      .cover-page-print {
+        page-break-after: always !important;
+        break-after: page !important;
+        min-height: 170mm;
+        display: flex !important;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        border: 2px solid #1e293b;
+        padding: 24px;
+        margin-top: 8mm;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col" oncontextmenu="return false;">
+
+  <!-- ===================================================================== -->
+  <!-- 1. UNIFIED LOGIN & REGISTRATION SCREEN                                -->
+  <!-- ===================================================================== -->
+  <div id="authView" class="min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white max-w-md w-full rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+      <div class="bg-slate-900 p-6 text-white text-center">
+        <div class="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center mx-auto mb-2 text-xl text-amber-400">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <h1 class="text-lg font-extrabold tracking-wide uppercase">NABH Quality & Policy Portal</h1>
+        <p class="text-slate-400 text-[11px] mt-1">Authorized Hospital Access System</p>
+      </div>
+
+      <!-- Role Selector -->
+      <div class="grid grid-cols-3 border-b border-slate-200 text-xs font-bold">
+        <button id="roleStaffBtn" onclick="setLoginRole('STAFF')" class="py-3 text-slate-900 border-b-2 border-slate-900 bg-slate-50">Staff</button>
+        <button id="roleAdminBtn" onclick="setLoginRole('HOSPITAL_ADMIN')" class="py-3 text-slate-500 hover:text-slate-900">Hospital Admin</button>
+        <button id="roleSuperBtn" onclick="setLoginRole('SUPER_ADMIN')" class="py-3 text-slate-500 hover:text-slate-900">Super Admin</button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="loginForm" onsubmit="doLogin(event)" class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Hospital Code</label>
+          <input type="text" id="loginHospId" required placeholder="e.g. OCH01 / DLSH02" class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm uppercase focus:ring-2 focus:ring-slate-800 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Mobile Number</label>
+          <input type="tel" id="loginPhone" required placeholder="10-digit registered mobile" class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-slate-800 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Password</label>
+          <input type="password" id="loginPass" required placeholder="Enter password" class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-slate-800 focus:outline-none">
+        </div>
+        <button type="submit" id="loginSubmitBtn" class="w-full bg-slate-900 hover:bg-black text-white font-semibold py-2.5 rounded-lg text-sm transition">
+          Secure Login &rarr;
+        </button>
+
+        <div id="regLinks" class="pt-2 text-center border-t border-slate-100 text-xs space-y-1.5">
+          <p><button type="button" onclick="toggleRegMode('STAFF_REG')" class="text-blue-700 font-semibold hover:underline">New Hospital Staff? Register Here</button></p>
+          <p><button type="button" onclick="toggleRegMode('ADMIN_REG')" class="text-slate-600 font-semibold hover:underline">New Hospital Admin Onboarding Request</button></p>
+        </div>
+      </form>
+
+      <!-- Staff Self-Signup Form -->
+      <form id="staffRegForm" onsubmit="doRegisterStaff(event)" class="p-6 space-y-3.5 hidden">
+        <h3 class="text-sm font-bold text-slate-800 border-b pb-2">New Staff Registration</h3>
+        <input type="text" id="sRegHosp" required placeholder="Hospital Code (e.g. OCH01)" class="w-full px-3.5 py-2 rounded-lg border text-sm uppercase">
+        <input type="text" id="sRegName" required placeholder="Full Name" class="w-full px-3.5 py-2 rounded-lg border text-sm">
+        <input type="tel" id="sRegPhone" required placeholder="Mobile Number" class="w-full px-3.5 py-2 rounded-lg border text-sm">
+        <select id="sRegDept" required class="w-full px-3.5 py-2 rounded-lg border text-sm bg-white">
+          <option value="">-- Select Department --</option>
+          <option>Medical / Doctors</option>
+          <option>Nursing Services</option>
+          <option>ICU / OT / Emergency</option>
+          <option>Pharmacy</option>
+          <option>Laboratory & Radiology</option>
+          <option>MRD / Quality / Admin</option>
+          <option>Housekeeping / Support</option>
+        </select>
+        <button type="submit" class="w-full bg-emerald-700 text-white font-semibold py-2.5 rounded-lg text-sm">Create Staff Account</button>
+        <button type="button" onclick="toggleRegMode('LOGIN')" class="w-full text-xs text-slate-500 underline">Back to Login</button>
+      </form>
+
+      <!-- Hospital Admin Signup Form -->
+      <form id="adminRegForm" onsubmit="doRegisterAdmin(event)" class="p-6 space-y-3.5 hidden">
+        <h3 class="text-sm font-bold text-slate-800 border-b pb-2">Hospital Admin Registration</h3>
+        <input type="text" id="aRegHospId" required placeholder="Desired Hospital Code (e.g. CITY01)" class="w-full px-3.5 py-2 rounded-lg border text-sm uppercase">
+        <input type="text" id="aRegHospName" required placeholder="Hospital Full Name" class="w-full px-3.5 py-2 rounded-lg border text-sm">
+        <input type="text" id="aRegName" required placeholder="Admin / Quality Manager Name" class="w-full px-3.5 py-2 rounded-lg border text-sm">
+        <input type="tel" id="aRegPhone" required placeholder="Admin Mobile Number" class="w-full px-3.5 py-2 rounded-lg border text-sm">
+        <input type="password" id="aRegPass" required placeholder="Create Admin Password" class="w-full px-3.5 py-2 rounded-lg border text-sm">
+        <select id="aRegTier" class="w-full px-3.5 py-2 rounded-lg border text-sm bg-white">
+          <option value="FULL_NABH">Full NABH (6th Edition)</option>
+          <option value="ENTRY_LEVEL">Entry Level NABH</option>
+        </select>
+        <button type="submit" class="w-full bg-slate-900 text-white font-semibold py-2.5 rounded-lg text-sm">Request Admin Access</button>
+        <button type="button" onclick="toggleRegMode('LOGIN')" class="w-full text-xs text-slate-500 underline">Back to Login</button>
+      </form>
+
+      <div class="bg-slate-50 px-4 py-2 text-center border-t border-slate-100">
+        <span class="text-[10px] text-slate-400 tracking-wide">Powered by Umbrella</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 2. SUBSCRIPTION EXPIRED / PAYMENT LOCK SCREEN                         -->
+  <!-- ===================================================================== -->
+  <div id="expiredView" class="hidden min-h-screen flex items-center justify-center p-4 bg-slate-900/95">
+    <div class="bg-white max-w-lg w-full rounded-2xl shadow-2xl p-8 text-center border-t-8 border-red-600">
+      <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+        <i class="fa-solid fa-lock"></i>
+      </div>
+      <h2 id="expHospName" class="text-lg font-extrabold text-slate-900 uppercase"></h2>
+      <div class="inline-block bg-red-50 text-red-700 font-bold text-xs px-3 py-1 rounded-full border border-red-200 mt-1">
+        PORTAL SUBSCRIPTION EXPIRED
+      </div>
+      <p class="text-sm text-slate-600 mt-4 leading-relaxed">
+        आपके अस्पताल का <strong>NABH Quality & Policy Portal</strong> सब्सक्रिप्शन समाप्त हो गया है। सेवाएं पुनः सक्रिय (Reactivate) करने के लिए नीचे दिए गए विवरण पर भुगतान करें:
+      </p>
+      <div class="my-5 p-4 bg-slate-50 rounded-xl border border-slate-200 text-left space-y-2 text-sm">
+        <p><strong>Renewal Fee:</strong> <span id="expAmount" class="text-red-700 font-bold"></span></p>
+        <p><strong>UPI ID:</strong> <span id="expUpi" class="font-mono bg-white px-2 py-0.5 rounded border select-all"></span></p>
+        <p><strong>Support / Activation Helpline:</strong> <span id="expPhone" class="font-bold"></span></p>
+        <p><strong>Email Receipt to:</strong> <span id="expEmail" class="text-blue-700"></span></p>
+      </div>
+      <button onclick="logout()" class="px-6 py-2.5 bg-slate-900 text-white text-xs font-semibold rounded-lg">Back to Login</button>
+      <p class="text-[10px] text-slate-400 mt-4">Powered by Umbrella</p>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 3. SUPER ADMIN PANEL (UMBRELLA CONTROL CENTER)                        -->
+  <!-- ===================================================================== -->
+  <div id="superAdminView" class="hidden flex-1 flex flex-col">
+    <header class="bg-slate-950 text-white px-6 py-3.5 flex flex-wrap justify-between items-center gap-3 shadow">
+      <div class="flex items-center gap-2.5">
+        <i class="fa-solid fa-umbrella text-red-500 text-xl"></i>
+        <h1 class="font-extrabold text-sm sm:text-base tracking-wide">SUPER ADMIN CONTROL CENTER</h1>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="syncMaster('FULL_NABH')" class="bg-blue-700 hover:bg-blue-800 px-3 py-1.5 rounded text-xs font-semibold">
+          <i class="fa-solid fa-rotate mr-1"></i> Sync Full NABH Doc
+        </button>
+        <button onclick="syncMaster('ENTRY_LEVEL')" class="bg-emerald-700 hover:bg-emerald-800 px-3 py-1.5 rounded text-xs font-semibold">
+          <i class="fa-solid fa-rotate mr-1"></i> Sync Entry Level Doc
+        </button>
+        <button onclick="logout()" class="bg-red-700 hover:bg-red-800 px-3 py-1.5 rounded text-xs font-semibold">Logout</button>
+      </div>
+    </header>
+
+    <div class="max-w-7xl w-full mx-auto p-5 space-y-6">
+      <!-- Add Hospital Box -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <h2 class="font-bold text-sm text-slate-800 mb-3"><i class="fa-solid fa-hospital-user mr-1.5 text-red-600"></i>Onboard New Hospital (Direct Active)</h2>
+        <form onsubmit="createHospitalDirect(event)" class="grid grid-cols-1 sm:grid-cols-6 gap-3">
+          <input type="text" id="newHId" required placeholder="Code (e.g. OCH01)" class="px-3 py-2 border rounded-lg text-xs uppercase">
+          <input type="text" id="newHName" required placeholder="Hospital Name" class="px-3 py-2 border rounded-lg text-xs sm:col-span-2">
+          <input type="tel" id="newHPhone" required placeholder="Admin Mobile" class="px-3 py-2 border rounded-lg text-xs">
+          <input type="text" id="newHPass" required placeholder="Admin Password" class="px-3 py-2 border rounded-lg text-xs">
+          <div class="flex gap-2">
+            <select id="newHTier" class="px-2 py-2 border rounded-lg text-xs bg-white flex-1">
+              <option value="FULL_NABH">Full NABH</option>
+              <option value="ENTRY_LEVEL">Entry Level</option>
+            </select>
+            <button type="submit" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold">+ Add</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Hospitals Management Table -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="px-5 py-3.5 border-b bg-slate-50 font-bold text-sm text-slate-800">Registered Hospitals & Subscription Control</div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-100 text-slate-600 uppercase">
+              <tr>
+                <th class="p-3">Code</th>
+                <th class="p-3">Hospital Name</th>
+                <th class="p-3">Admin Mobile</th>
+                <th class="p-3">NABH Tier</th>
+                <th class="p-3">Status</th>
+                <th class="p-3">Control Actions</th>
+              </tr>
+            </thead>
+            <tbody id="superHospTable" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Promote Good Corrections to Master Google Doc -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+        <h2 class="font-bold text-sm text-slate-800 mb-3"><i class="fa-solid fa-wand-magic-sparkles text-amber-500 mr-1.5"></i>Best Staff Corrections (Promote Permanently to Master Google Doc)</h2>
+        <div id="superSuggestionsList" class="space-y-3"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 4. HOSPITAL PORTAL (READER + ADMIN BRANDING + STAFF APPROVALS)        -->
+  <!-- ===================================================================== -->
+  <div id="hospitalPortalView" class="hidden flex-1 flex flex-col">
+    <header class="bg-slate-900 text-white shadow sticky top-0 z-30 no-print">
+      <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+        <div>
+          <h1 id="hdrHospName" class="font-extrabold text-sm sm:text-base uppercase"></h1>
+          <p class="text-[11px] text-slate-300">NABH Policy & SOP Management System <span class="text-slate-500 ml-2">| Powered by Umbrella</span></p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Admin-Only Navigation Tabs -->
+          <div id="adminNavTabs" class="hidden flex gap-1.5 mr-2">
+            <button onclick="switchHospitalTab('READER')" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-xs font-semibold">Policies</button>
+            <button onclick="switchHospitalTab('BRANDING')" class="bg-blue-700 hover:bg-blue-600 px-3 py-1.5 rounded text-xs font-semibold">Branding & Seal</button>
+            <button onclick="switchHospitalTab('APPROVALS')" class="bg-amber-600 hover:bg-amber-500 px-3 py-1.5 rounded text-xs font-semibold">Approvals</button>
+          </div>
+          <span id="hdrUserBadge" class="text-xs bg-white/10 px-2.5 py-1 rounded"></span>
+          <button onclick="logout()" class="bg-red-700 hover:bg-red-800 px-3 py-1.5 rounded text-xs font-semibold">Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- SUB-VIEW A: POLICY READER (FOR STAFF & ADMIN) -->
+    <div id="tabReaderView" class="max-w-7xl w-full mx-auto px-4 py-5 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <aside class="lg:col-span-4 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col max-h-[82vh] no-print">
+        <div class="p-3 border-b bg-slate-50 rounded-t-xl">
+          <input type="text" id="polSearchInput" onkeyup="filterPolicyList()" placeholder="Search Policy / Code..." class="w-full px-3 py-2 border rounded-lg text-xs">
+          <div class="flex justify-between text-[11px] text-slate-500 font-bold mt-2">
+            <span>POLICY INDEX</span>
+            <span id="polCountBadge">0 Policies</span>
+          </div>
+        </div>
+        <div id="policySidebarList" class="overflow-y-auto divide-y divide-slate-100 p-1.5 flex-1"></div>
+      </aside>
+
+      <main class="lg:col-span-8">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 sm:p-8 min-h-[75vh]">
+          <div id="readerActionsBar" class="hidden flex-wrap justify-between items-center gap-2 pb-4 mb-5 border-b no-print">
+            <span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+              <i class="fa-solid fa-check-circle mr-1"></i> Controlled Live Copy
+            </span>
+            <div class="flex gap-2">
+              <button onclick="openCorrectionDialog()" class="bg-amber-100 hover:bg-amber-200 text-amber-900 px-3 py-1.5 rounded-lg text-xs font-bold">
+                <i class="fa-solid fa-pen mr-1"></i> Suggest Correction
+              </button>
+              <button onclick="window.print()" class="bg-slate-900 hover:bg-black text-white px-3.5 py-1.5 rounded-lg text-xs font-bold">
+                <i class="fa-solid fa-print mr-1"></i> Print Official Policy
+              </button>
+            </div>
+          </div>
+
+          <!-- Dynamic Print & Clean Screen Container -->
+          <div id="printContainer" class="protected-content">
+            <div class="text-center py-24 text-slate-400">
+              <i class="fa-solid fa-file-shield text-4xl mb-3 text-slate-300"></i>
+              <p class="text-sm font-bold text-slate-600">Select a policy from the left index to read or print</p>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- SUB-VIEW B: HOSPITAL ADMIN BRANDING & VARIABLES SETUP -->
+    <div id="tabBrandingView" class="hidden max-w-4xl w-full mx-auto p-5">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h2 class="font-extrabold text-base text-slate-900 border-b pb-3 mb-4">Hospital Letterhead, Seal & Print Variables Setup</h2>
+        <form onsubmit="saveBrandingSettings(event)" class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <div>
+            <label class="font-bold block mb-1">Hospital Full Name</label>
+            <input type="text" id="bHospName" required class="w-full p-2.5 border rounded-lg">
+          </div>
+          <div>
+            <label class="font-bold block mb-1">Policy Code Prefix (e.g. OCH / DLSH)</label>
+            <input type="text" id="bPrefix" required class="w-full p-2.5 border rounded-lg uppercase">
+          </div>
+          <div class="sm:col-span-2">
+            <label class="font-bold block mb-1">Full Address</label>
+            <input type="text" id="bAddress" class="w-full p-2.5 border rounded-lg">
+          </div>
+          <div>
+            <label class="font-bold block mb-1">Hospital Contact Numbers</label>
+            <input type="text" id="bPhone" class="w-full p-2.5 border rounded-lg">
+          </div>
+          <div>
+            <label class="font-bold block mb-1">Letterhead / Logo Image URL</label>
+            <input type="url" id="bLogoUrl" placeholder="Direct Image Link" class="w-full p-2.5 border rounded-lg">
+          </div>
+          <div>
+            <label class="font-bold block mb-1">Hospital Round Seal Image URL</label>
+            <input type="url" id="bSealUrl" placeholder="Direct Image Link" class="w-full p-2.5 border rounded-lg">
+          </div>
+          <div>
+            <label class="font-bold block mb-1">Prepared By (Name & Designation)</label>
+            <input type="text" id="bPrepBy" placeholder="e.g. Quality Manager" class="w-full p-2.5 border rounded-lg">
+          </div>
+          <div>
+            <label class="font-bold block mb-1">Prepared By Signature Image URL</label>
+            <input type="url" id="bPrepSign" class="w-full p-2.5 border rounded-lg">
+          </div>
+          <div>
+            <label class="font-bold block mb-1">Authorized / Approved By (Name & Post)</label>
+            <input type="text" id="bAuthBy" placeholder="e.g. Medical Director" class="w-full p-2.5 border rounded-lg">
+          </div>
+          <div>
+            <label class="font-bold block mb-1">Authorized By Signature Image URL</label>
+            <input type="url" id="bAuthSign" class="w-full p-2.5 border rounded-lg">
+          </div>
+          <div>
+            <label class="font-bold block mb-1">Policy Make Year & Month</label>
+            <input type="text" id="bMakeDate" placeholder="November 2026" class="w-full p-2.5 border rounded-lg">
+          </div>
+          <div>
+            <label class="font-bold block mb-1">Valid Till</label>
+            <input type="text" id="bValidTill" placeholder="November 2027" class="w-full p-2.5 border rounded-lg">
+          </div>
+          <div class="sm:col-span-2 pt-2">
+            <button type="submit" class="bg-slate-900 hover:bg-black text-white font-bold px-6 py-2.5 rounded-lg">Save Print & Branding Variables</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- SUB-VIEW C: HOSPITAL ADMIN APPROVALS (STAFF & LOCAL CORRECTIONS) -->
+    <div id="tabApprovalsView" class="hidden max-w-6xl w-full mx-auto p-5 space-y-6">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+        <h3 class="font-bold text-sm text-slate-900 border-b pb-2 mb-3">Staff Access Approvals (Approve / Unapprove)</h3>
+        <div id="adminStaffTable" class="space-y-2 text-xs"></div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+        <h3 class="font-bold text-sm text-slate-900 border-b pb-2 mb-3">Pending Policy Corrections (Appends Anonymously Below Policy)</h3>
+        <div id="adminCorrectionsList" class="space-y-3 text-xs"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Suggest Correction Modal -->
+  <div id="corrModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50 no-print">
+    <div class="bg-white rounded-xl max-w-md w-full p-5 shadow-2xl">
+      <h3 class="font-bold text-sm text-slate-900 mb-2">Suggest Policy Correction</h3>
+      <p id="corrModalPolTitle" class="text-xs text-blue-800 font-semibold mb-3"></p>
+      <textarea id="corrModalInput" rows="4" placeholder="Write your suggested correction here..." class="w-full p-3 border rounded-lg text-xs"></textarea>
+      <div class="flex justify-end gap-2 mt-4">
+        <button onclick="document.getElementById('corrModal').classList.add('hidden')" class="px-4 py-2 text-xs text-slate-600">Cancel</button>
+        <button onclick="submitCorrectionNow()" class="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-lg">Submit for Admin Approval</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // यहाँ अपना Apps Script Web App URL (/exec) डालें:
+    const API_URL = "https://script.google.com/macros/s/AKfycby_Sgv_rq_a3B_Qk1rSY7dO-UpELubwLx9tOdT783Pmv1p1U6r_yWa6n6njxrCzaQpNMw/exec";
+
+    let selectedRole = "STAFF";
+    let session = null; // { token, user, hospital }
+    let policyHeadings = [];
+    let currentPolicy = null;
+
+    // Anti-Decode / Anti-Inspect Keyboard Blockers
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "F12" || (e.ctrlKey && e.shiftKey && (e.key === "I" || e.key === "J" || e.key === "C")) || (e.ctrlKey && (e.key === "u" || e.key === "U" || e.key === "s" || e.key === "S" || e.key === "c" || e.key === "C"))) {
+        e.preventDefault();
+        return false;
+      }
+    });
+
+    function setLoginRole(role) {
+      selectedRole = role;
+      ["STAFF", "HOSPITAL_ADMIN", "SUPER_ADMIN"].forEach(r => {
+        const btnId = r === "STAFF" ? "roleStaffBtn" : r === "HOSPITAL_ADMIN" ? "roleAdminBtn" : "roleSuperBtn";
+        document.getElementById(btnId).className = (r === role)
+          ? "py-3 text-slate-900 border-b-2 border-slate-900 bg-slate-50"
+          : "py-3 text-slate-500 hover:text-slate-900";
+      });
+      document.getElementById("loginHospId").value = (role === "SUPER_ADMIN") ? "UMBRELLA" : "";
+    }
+
+    function toggleRegMode(mode) {
+      document.getElementById("loginForm").classList.toggle("hidden", mode !== "LOGIN");
+      document.getElementById("staffRegForm").classList.toggle("hidden", mode !== "STAFF_REG");
+      document.getElementById("adminRegForm").classList.toggle("hidden", mode !== "ADMIN_REG");
+    }
+
+    async function apiCall(payload) {
+      const res = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
+      const data = await res.json();
+      if (data.status === "unauthorized") {
+        if (data.message === "SUBSCRIPTION_EXPIRED") location.reload();
+        alert(data.message);
+        logout();
+      }
+      return data;
+    }
+
+    async function doLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById("loginSubmitBtn");
+      btn.disabled = true; btn.innerText = "Authenticating...";
+      try {
+        const res = await apiCall({
+          action: "login",
+          role: selectedRole,
+          hospitalId: document.getElementById("loginHospId").value,
+          phone: document.getElementById("loginPhone").value,
+          password: document.getElementById("loginPass").value
+        });
+        if (res.status === "expired") {
+          document.getElementById("authView").classList.add("hidden");
+          document.getElementById("expiredView").classList.remove("hidden");
+          document.getElementById("expHospName").innerText = res.hospitalName;
+          document.getElementById("expAmount").innerText = res.planAmount;
+          document.getElementById("expUpi").innerText = res.paymentUpi;
+          document.getElementById("expPhone").innerText = res.supportPhone;
+          document.getElementById("expEmail").innerText = res.supportEmail;
+        } else if (res.status === "success") {
+          session = res;
+          initWorkspace();
+        } else {
+          alert(res.message);
+        }
+      } catch (err) { alert("Connection Error"); }
+      btn.disabled = false; btn.innerText = "Secure Login →";
+    }
+
+    async function doRegisterStaff(e) {
+      e.preventDefault();
+      const res = await apiCall({
+        action: "registerStaff",
+        hospitalId: document.getElementById("sRegHosp").value,
+        name: document.getElementById("sRegName").value,
+        phone: document.getElementById("sRegPhone").value,
+        department: document.getElementById("sRegDept").value
+      });
+      if (res.status === "success") {
+        alert(`${res.message}\n\nHospital Code: ${res.credentials.hospitalId}\nUser ID: ${res.credentials.phone}\nPassword: ${res.credentials.password}`);
+        toggleRegMode("LOGIN");
+      } else alert(res.message);
+    }
+
+    async function doRegisterAdmin(e) {
+      e.preventDefault();
+      const res = await apiCall({
+        action: "registerHospitalAdmin",
+        hospitalId: document.getElementById("aRegHospId").value,
+        hospitalName: document.getElementById("aRegHospName").value,
+        adminName: document.getElementById("aRegName").value,
+        adminPhone: document.getElementById("aRegPhone").value,
+        password: document.getElementById("aRegPass").value,
+        tier: document.getElementById("aRegTier").value
+      });
+      alert(res.message);
+      if (res.status === "success") toggleRegMode("LOGIN");
+    }
+
+    function logout() { session = null; location.reload(); }
+
+    function initWorkspace() {
+      document.getElementById("authView").classList.add("hidden");
+      if (session.user.role === "SUPER_ADMIN") {
+        document.getElementById("superAdminView").classList.remove("hidden");
+        loadSuperDashboard();
+      } else {
+        document.getElementById("hospitalPortalView").classList.remove("hidden");
+        document.getElementById("hdrHospName").innerText = session.hospital.name;
+        document.getElementById("hdrUserBadge").innerText = `${session.user.name} (${session.user.role})`;
+        if (session.user.role === "HOSPITAL_ADMIN") {
+          document.getElementById("adminNavTabs").classList.remove("hidden");
+          fillBrandingForm(session.hospital);
+        }
+        loadPolicyHeadings();
+      }
+    }
+
+    // --- SUPER ADMIN FUNCTIONS ---
+    async function loadSuperDashboard() {
+      const res = await apiCall({ action: "superDashboard", token: session.token, hospitalId: "UMBRELLA", role: "SUPER_ADMIN" });
+      if (res.status !== "success") return;
+      const tbody = document.getElementById("superHospTable");
+      tbody.innerHTML = res.hospitals.map(h => `
+        <tr>
+          <td class="p-3 font-bold">${h.hospitalId}</td>
+          <td class="p-3">${h.name}</td>
+          <td class="p-3">${h.adminPhone}</td>
+          <td class="p-3"><span class="px-2 py-0.5 bg-slate-100 rounded font-semibold">${h.tier}</span></td>
+          <td class="p-3 font-bold ${h.status === 'ACTIVE' ? 'text-emerald-700' : 'text-red-600'}">${h.status}</td>
+          <td class="p-3 space-x-1">
+            <button onclick="changeHospStatus('${h.hospitalId}','ACTIVE')" class="bg-emerald-600 text-white px-2 py-1 rounded">Approve/Active</button>
+            <button onclick="changeHospStatus('${h.hospitalId}','UNAPPROVED')" class="bg-amber-600 text-white px-2 py-1 rounded">Unapprove</button>
+            <button onclick="changeHospStatus('${h.hospitalId}','EXPIRED')" class="bg-red-600 text-white px-2 py-1 rounded">Expire/Lock</button>
+          </td>
+        </tr>`).join("");
+
+      const sList = document.getElementById("superSuggestionsList");
+      sList.innerHTML = res.suggestions.length === 0 ? `<p class="text-xs text-slate-400">No new suggestions yet.</p>` : res.suggestions.map(s => `
+        <div class="p-3 border rounded-lg bg-slate-50">
+          <div class="text-xs font-bold text-slate-700 mb-1">From: ${s.hospitalId} | Policy: ${s.policyCode}</div>
+          <textarea id="promoTxt_${s.id}" rows="2" class="w-full p-2 border rounded text-xs mb-2">${s.text}</textarea>
+          <div class="flex gap-2">
+            <button onclick="promoteCorrection('${s.id}','${s.policyCode}','FULL_NABH')" class="bg-blue-700 text-white px-3 py-1 rounded text-xs font-bold">Add to Full NABH Doc</button>
+            <button onclick="promoteCorrection('${s.id}','${s.policyCode}','ENTRY_LEVEL')" class="bg-emerald-700 text-white px-3 py-1 rounded text-xs font-bold">Add to Entry Level Doc</button>
+          </div>
+        </div>`).join("");
+    }
+
+    async function createHospitalDirect(e) {
+      e.preventDefault();
+      const res = await apiCall({
+        action: "superCreateHospital", token: session.token, hospitalId: "UMBRELLA", role: "SUPER_ADMIN",
+        newHospId: document.getElementById("newHId").value,
+        hospitalId: document.getElementById("newHId").value,
+        hospitalName: document.getElementById("newHName").value,
+        adminPhone: document.getElementById("newHPhone").value,
+        password: document.getElementById("newHPass").value,
+        tier: document.getElementById("newHTier").value
+      });
+      alert(res.message);
+      loadSuperDashboard();
+    }
+
+    async function changeHospStatus(targetHospitalId, newStatus) {
+      const res = await apiCall({ action: "superToggleHospital", token: session.token, hospitalId: "UMBRELLA", role: "SUPER_ADMIN", targetHospitalId, newStatus });
+      alert(res.message);
+      loadSuperDashboard();
+    }
+
+    async function syncMaster(tier) {
+      const res = await apiCall({ action: "superSyncMaster", token: session.token, hospitalId: "UMBRELLA", role: "SUPER_ADMIN", tier });
+      alert(res.message);
+    }
+
+    async function promoteCorrection(suggestionId, policyCode, tier) {
+      const editedText = document.getElementById("promoTxt_" + suggestionId).value;
+      const res = await apiCall({ action: "superPromoteCorrection", token: session.token, hospitalId: "UMBRELLA", role: "SUPER_ADMIN", suggestionId, policyCode, tier, editedText });
+      alert(res.message);
+      loadSuperDashboard();
+    }
+
+    // --- HOSPITAL ADMIN & READER FUNCTIONS ---
+    function switchHospitalTab(tab) {
+      document.getElementById("tabReaderView").classList.toggle("hidden", tab !== "READER");
+      document.getElementById("tabBrandingView").classList.toggle("hidden", tab !== "BRANDING");
+      document.getElementById("tabApprovalsView").classList.toggle("hidden", tab !== "APPROVALS");
+      if (tab === "APPROVALS") loadAdminApprovals();
+    }
+
+    function fillBrandingForm(h) {
+      document.getElementById("bHospName").value = h.name || "";
+      document.getElementById("bPrefix").value = h.prefix || "";
+      document.getElementById("bAddress").value = h.address || "";
+      document.getElementById("bPhone").value = h.contactPhone || "";
+      document.getElementById("bLogoUrl").value = h.logoUrl || "";
+      document.getElementById("bSealUrl").value = h.sealUrl || "";
+      document.getElementById("bPrepBy").value = h.prepBy || "";
+      document.getElementById("bPrepSign").value = h.prepSignUrl || "";
+      document.getElementById("bAuthBy").value = h.authBy || "";
+      document.getElementById("bAuthSign").value = h.authSignUrl || "";
+      document.getElementById("bMakeDate").value = h.makeDate || "";
+      document.getElementById("bValidTill").value = h.validTill || "";
+    }
+
+    async function saveBrandingSettings(e) {
+      e.preventDefault();
+      const res = await apiCall({
+        action: "adminSaveBranding", token: session.token, hospitalId: session.user.hospitalId, role: "HOSPITAL_ADMIN",
+        hospitalName: document.getElementById("bHospName").value,
+        prefix: document.getElementById("bPrefix").value,
+        address: document.getElementById("bAddress").value,
+        contactPhone: document.getElementById("bPhone").value,
+        logoUrl: document.getElementById("bLogoUrl").value,
+        sealUrl: document.getElementById("bSealUrl").value,
+        prepBy: document.getElementById("bPrepBy").value,
+        prepSignUrl: document.getElementById("bPrepSign").value,
+        authBy: document.getElementById("bAuthBy").value,
+        authSignUrl: document.getElementById("bAuthSign").value,
+        makeDate: document.getElementById("bMakeDate").value,
+        validTill: document.getElementById("bValidTill").value
+      });
+      if (res.status === "success") {
+        session.hospital = res.hospital;
+        document.getElementById("hdrHospName").innerText = res.hospital.name;
+      }
+      alert(res.message);
+    }
+
+    async function loadAdminApprovals() {
+      const res = await apiCall({ action: "adminGetData", token: session.token, hospitalId: session.user.hospitalId, role: "HOSPITAL_ADMIN" });
+      if (res.status !== "success") return;
+
+      document.getElementById("adminStaffTable").innerHTML = res.staff.map(s => `
+        <div class="flex flex-wrap justify-between items-center p-2.5 border rounded-lg">
+          <div><strong>${s.name}</strong> (${s.department}) — ${s.phone} <span class="ml-2 font-bold ${s.status === 'APPROVED' ? 'text-emerald-700' : 'text-red-600'}">[${s.status}]</span></div>
+          <div class="space-x-1">
+            <button onclick="toggleStaff('${s.phone}','APPROVED')" class="bg-emerald-600 text-white px-2.5 py-1 rounded">Approve</button>
+            <button onclick="toggleStaff('${s.phone}','UNAPPROVED')" class="bg-red-600 text-white px-2.5 py-1 rounded">Unapprove</button>
+          </div>
+        </div>`).join("");
+
+      document.getElementById("adminCorrectionsList").innerHTML = res.pendingCorrections.length === 0 ? `<p class="text-slate-400">No pending corrections.</p>` : res.pendingCorrections.map(c => `
+        <div class="p-3 border rounded-lg bg-amber-50/50">
+          <div class="font-bold text-slate-800 mb-1">Policy: ${c.policyCode} — ${c.title}</div>
+          <textarea id="corrEdit_${c.id}" rows="2" class="w-full p-2 border rounded bg-white mb-2">${c.text}</textarea>
+          <div class="flex gap-2">
+            <button onclick="decideCorrection('${c.id}','adminApproveCorrection')" class="bg-emerald-700 text-white px-3 py-1 rounded font-bold">Approve & Append Anonymously</button>
+            <button onclick="decideCorrection('${c.id}','adminRejectCorrection')" class="bg-red-600 text-white px-3 py-1 rounded font-bold">Reject</button>
+          </div>
+        </div>`).join("");
+    }
+
+    async function toggleStaff(staffPhone, newStatus) {
+      const res = await apiCall({ action: "adminToggleStaff", token: session.token, hospitalId: session.user.hospitalId, role: "HOSPITAL_ADMIN", staffPhone, newStatus });
+      alert(res.message);
+      loadAdminApprovals();
+    }
+
+    async function decideCorrection(correctionId, action) {
+      const editedText = document.getElementById("corrEdit_" + correctionId).value;
+      const res = await apiCall({ action, token: session.token, hospitalId: session.user.hospitalId, role: "HOSPITAL_ADMIN", correctionId, editedText });
+      alert(res.message);
+      loadAdminApprovals();
+    }
+
+    async function loadPolicyHeadings() {
+      const res = await apiCall({ action: "getHeadings", token: session.token, hospitalId: session.user.hospitalId, role: session.user.role });
+      if (res.status === "success") {
+        policyHeadings = res.headings;
+        renderPolicyList(policyHeadings);
+      }
+    }
+
+    function renderPolicyList(list) {
+      document.getElementById("polCountBadge").innerText = list.length + " Policies";
+      document.getElementById("policySidebarList").innerHTML = list.map(h => `
+        <button onclick="openPolicy(${h.index})" class="w-full text-left px-3 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg block">
+          ${h.title}
+        </button>`).join("");
+    }
+
+    function filterPolicyList() {
+      const q = document.getElementById("polSearchInput").value.toLowerCase();
+      renderPolicyList(policyHeadings.filter(h => h.title.toLowerCase().includes(q)));
+    }
+
+    async function openPolicy(index) {
+      const res = await apiCall({ action: "getPolicyDetail", token: session.token, hospitalId: session.user.hospitalId, role: session.user.role, index });
+      if (res.status !== "success") return;
+      currentPolicy = res;
+      const h = res.hospital;
+      document.getElementById("readerActionsBar").classList.remove("hidden");
+      document.getElementById("readerActionsBar").classList.add("flex");
+
+      // Print-Only Letterhead Header
+      const printHeader = `
+        <div class="hidden print:block border-b-2 border-slate-900 pb-2 mb-3 text-center">
+          ${h.logoUrl ? `<img src="${h.logoUrl}" class="max-h-16 mx-auto mb-1" />` : ""}
+          <h2 class="text-lg font-black uppercase text-slate-900">${h.name}</h2>
+          <p class="text-[11px] text-slate-700">${h.address} ${h.contactPhone ? '• Ph: ' + h.contactPhone : ''}</p>
+        </div>`;
+
+      // Print-Only Cover Page (Page 1)
+      const printCoverPage = `
+        <div class="hidden print:flex cover-page-print">
+          <p class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">STANDARD OPERATING PROCEDURE & POLICY MANUAL</p>
+          <h1 class="text-xl font-black text-slate-900 mb-4">${res.title}</h1>
+          <div class="text-sm space-y-1.5 text-slate-800">
+            <p><strong>Policy Document Number:</strong> ${res.localizedCode}</p>
+            <p><strong>Revision Number:</strong> Rev. 00</p>
+            <p><strong>Make Year & Month:</strong> ${h.makeDate}</p>
+            <p><strong>Valid Till:</strong> ${h.validTill}</p>
+            <p><strong>Issued By:</strong> ${h.name}</p>
+          </div>
+        </div>`;
+
+      // Print-Only Footer with Transparent Seal & Signatures
+      const printFooter = `
+        <div class="hidden print:block border-t-2 border-slate-900 pt-2 mt-4">
+          <table class="w-full text-center text-[10px] border-collapse border border-slate-800">
+            <tr>
+              <td class="border border-slate-800 p-1.5 w-1/3">
+                ${h.prepSignUrl ? `<img src="${h.prepSignUrl}" class="h-8 mx-auto transparent-stamp" />` : '<div class="h-8"></div>'}
+                <div class="font-bold">PREPARED BY</div>
+                <div>${h.prepBy || 'Quality Manager'}</div>
+              </td>
+              <td class="border border-slate-800 p-1.5 w-1/3">
+                ${h.authSignUrl ? `<img src="${h.authSignUrl}" class="h-8 mx-auto transparent-stamp" />` : '<div class="h-8"></div>'}
+                <div class="font-bold">AUTHORIZED BY</div>
+                <div>${h.authBy || 'Medical Director'}</div>
+              </td>
+              <td class="border border-slate-800 p-1.5 w-1/3">
+                ${h.sealUrl ? `<img src="${h.sealUrl}" class="h-12 mx-auto transparent-stamp" />` : '<div class="h-12"></div>'}
+                <div class="font-bold">HOSPITAL SEAL</div>
+              </td>
+            </tr>
+          </table>
+        </div>`;
+
+      document.getElementById("printContainer").innerHTML = `
+        <table class="print-layout w-full">
+          <thead><tr><td>${printHeader}</td></tr></thead>
+          <tbody>
+            <tr>
+              <td>
+                ${printCoverPage}
+                <div class="mb-4 pb-2 border-b print:hidden">
+                  <span class="text-xs font-bold text-slate-500">${res.localizedCode}</span>
+                  <h2 class="text-lg font-extrabold text-slate-900">${res.title}</h2>
+                </div>
+                ${res.html}
+              </td>
+            </tr>
+          </tbody>
+          <tfoot><tr><td>${printFooter}</td></tr></tfoot>
+        </table>`;
+    }
+
+    function openCorrectionDialog() {
+      if (!currentPolicy) return;
+      document.getElementById("corrModalPolTitle").innerText = currentPolicy.title;
+      document.getElementById("corrModalInput").value = "";
+      document.getElementById("corrModal").classList.remove("hidden");
+      document.getElementById("corrModal").classList.add("flex");
+    }
+
+    async function submitCorrectionNow() {
+      const correctionText = document.getElementById("corrModalInput").value.trim();
+      if (!correctionText) return alert("Please enter correction details.");
+      const res = await apiCall({
+        action: "submitCorrection",
+        token: session.token,
+        hospitalId: session.user.hospitalId,
+        role: session.user.role,
+        userName: session.user.name,
+        userPhone: session.user.phone || "Admin",
+        policyCode: currentPolicy.policyCode,
+        policyTitle: currentPolicy.title,
+        correctionText
+      });
+      alert(res.message);
+      document.getElementById("corrModal").classList.add("hidden");
+    }
+  </script>
+</body>
+</html>
